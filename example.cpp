@@ -25,7 +25,22 @@ int main() {
         0,
         8
     ); 
-  
+ 
+	teco::Screen test_screen;
+	test_screen.add_sprite(test_sprite);
+
+	for (int line = 0; line <= teco::HEIGHT_IN_SYMBOLS; line++) {
+		for (int column = 0; column <= teco::WIDTH_IN_SYMBOLS; column++) {
+			if (test_screen.symbols[line][column] != '#') {
+				std::cout << " ";
+			}
+			else {
+				std::cout << test_screen.symbols[line][column];
+			}
+		}
+		std::cout << std::endl;
+	} 
+
     teco::mainloop();
     return 0;
 }

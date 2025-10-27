@@ -205,11 +205,10 @@ public:
 	void add_sprite(Sprite sprite){
 		Source source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame_index];
 
-		for (int line_number = sprite.y; line_number - sprite.y < source.symbols.size(); line_number+=4) {
-			for (int column_number = sprite.x; column_number - sprite.x < source.symbols[line_number-sprite.y].size(); column_number+=4) {
-				symbols[line_number][column_number] = source.symbols[line_number-sprite.y][column_number-sprite.x];
+		for (int line = 0; line < source.symbols.size(); line++) {
+			for (int column = 0; column < source.symbols[line].size(); column++) {
+				symbols[line*4+sprite.y][column*4+sprite.x] = source.symbols[line][column];
 			}
-			std::cout << source.symbols[line_number-sprite.y] << std::endl;
 		}
 	}
 };
@@ -326,9 +325,6 @@ void handle_events() {
 
 void draw() {
 	SDL_RenderClear(renderer);
-	SDL_RenderPresent(renderer);
-
-	Screen screen;
 	
 /*
 	for (auto layer : sprites) {
@@ -345,7 +341,9 @@ void draw() {
             }
         }
     }
-*/	
+*/
+
+	SDL_RenderPresent(renderer);
 }
 
 void playsounds(const char path_to_sound[64]) {
