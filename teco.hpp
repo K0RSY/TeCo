@@ -3,7 +3,9 @@ TeCo - one-file-headder C++ terminal and gui game engine
 */
 
 #include <ncurses.h>
+#include <SDL2/SDL.h>
 #include <vector>
+#include <iostream>
 #include <algorithm>
 #include <chrono>
 #include <string>
@@ -32,12 +34,15 @@ void tick();
 
 void mainloop();
 
+void process_io_tui();
+void process_io_gui();
+void handle_events_tui();
 void draw_tui();
+void handle_events_gui();
 void draw_gui();
+void playsounds(char[]);
 
 bool is_key_pressed(int);
-
-void playsound(char[64]);
 
 // enums
 enum {
@@ -55,6 +60,13 @@ enum {
     PROCEDURAL_SPRITES = 0,
     SPRITES = 1
 };
+
+// consts
+const int STANDARD_BACKGROUND_RED = 0x12; 
+const int STANDARD_BACKGROUND_GREEN = 0x12;
+const int STANDARD_BACKGROUND_BLUE = 0x12;			
+const int STANDARD_WINDOW_WIDTH = 640;
+const int STANDARD_WINDOW_HEIGHT = 480;
 
 // variables
 int fps;
@@ -76,6 +88,15 @@ std::vector<int> pressed_keys;
 bool run = true;
 
 int layer_count;
+  
+int window_width = STANDARD_WINDOW_WIDTH;
+int window_height = STANDARD_WINDOW_HEIGHT;
+		
+SDL_DisplayMode display_mode;
+SDL_Event event;
+SDL_Renderer *renderer = NULL;
+SDL_Window *window = NULL;
+SDL_Surface *window_surface = NULL;
 
 // classes
 class Source {
@@ -203,15 +224,40 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
         keypad(stdscr, TRUE);
         nodelay(stdscr, TRUE);
 
-        #ifndef draw
-        #define draw() draw_tui()
-        #endif
-    } else {
-        exit();
+        #undef process_io
+        #define process_io() process_io_tui()
 
-        #ifndef draw
-        #define draw() draw_gui()
-        #endif
+    } else {
+		if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+			std::cout << "SDL_Init Error: " << SDL_GetError() << std::endl;
+			exit();
+		}
+
+		window = SDL_CreateWindow(
+			"Хранитель света и тайн Балитики",
+			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+			STANDARD_WINDOW_WIDTH, STANDARD_WINDOW_HEIGHT,
+			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+		);
+
+		if (window == NULL) {
+			std::cout << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
+		}
+
+		renderer = SDL_CreateRenderer(
+			window, -1,
+			SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+		);
+
+		if (renderer == NULL)
+		{
+			std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
+		}
+
+		SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
+
+		#undef process_io
+        #define process_io() process_io_gui()
     }
 }
 
@@ -236,15 +282,15 @@ bool is_key_pressed(int key) {
 void mainloop() {
     while (run) {
         auto delta_time = unftime() - last_update_time;
-        last_update_time += delta_time;
+        last_update_time = unftime();
         accumulator += delta_time;
         
         while (accumulator > tick_slice) {
             tick();
             accumulator -= tick_slice;
         }
-        
-        draw();
+
+        process_io();
         
         if (delta_time < draw_slice)
             unfsleep((draw_slice - delta_time).count());
@@ -252,13 +298,43 @@ void mainloop() {
     endwin();
 }
 
-void draw_tui() {
-    // check pressed keys
+void process_io_tui() {
+	handle_events_tui();
+	draw_tui();
+}
+
+void process_io_gui() {
+	handle_events_gui();
+	draw_gui();
+	playsounds("path");
+}
+
+void handle_events_tui() {
     int ch = getch();
     pressed_keys.push_back(ch);
     flushinp();
-    
-    // draw sprites
+}
+
+void handle_events_gui() {
+	while (SDL_PollEvent(&event) != 0) {
+		if (event.type == SDL_QUIT) {
+			exit();
+		}
+
+		else if (event.type == SDL_WINDOWEVENT) {
+			if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+				window_width = event.window.data1;
+				window_height = event.window.data2;
+			}
+		}
+
+		else if (event.type == SDL_KEYDOWN) {
+			pressed_keys.push_back(event.key.keysym.sym);
+		}
+	}
+}
+
+void draw_tui() {
     for (auto layer : sprites) {
         for (int sprite_type_index = 0; sprite_type_index < layer.size(); sprite_type_index++) {
             for (auto sprite : layer[sprite_type_index]) {
@@ -278,15 +354,18 @@ void draw_tui() {
 }
 
 void draw_gui() {
-
+	SDL_RenderClear(renderer);
+	SDL_RenderPresent(renderer);	
 }
 
-void playsound(char path_to_sound[64]) {
-    if (graphics_type == GUI) {}
+void playsounds(char path_to_sound[]) {
 }
 
 void exit() {
     run = false;
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
 }
 
 }
