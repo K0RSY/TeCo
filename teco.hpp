@@ -343,6 +343,18 @@ void draw() {
     }
 */
 
+	for (int line = 0; line <= teco::HEIGHT_IN_SYMBOLS; line++) {
+		for (int column = 0; column <= teco::WIDTH_IN_SYMBOLS; column++) {
+			if (test_screen.symbols[line][column] != '#') {
+				std::cout << " ";
+			}
+			else {
+				std::cout << test_screen.symbols[line][column];
+			}
+		}
+		std::cout << std::endl;
+	}
+
 	SDL_RenderPresent(renderer);
 }
 
