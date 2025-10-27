@@ -306,7 +306,8 @@ void process_io_tui() {
 void process_io_gui() {
 	handle_events_gui();
 	draw_gui();
-	playsounds("path");
+    const char *path = "path";
+	playsounds(path);
 }
 
 void handle_events_tui() {
@@ -358,7 +359,7 @@ void draw_gui() {
 	SDL_RenderPresent(renderer);	
 }
 
-void playsounds(char path_to_sound[]) {
+void playsounds(const char path_to_sound[]) {
 }
 
 void exit() {
