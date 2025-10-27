@@ -6,6 +6,8 @@ TeCo - one-file-headder C++ terminal and gui game engine
 #include <vector>
 #include <algorithm>
 #include <chrono>
+#include <string>
+#include <fstream>
 
 #define unfduration std::chrono::nanoseconds
 #define second_ratio 1000000000L
@@ -24,7 +26,7 @@ TeCo - one-file-headder C++ terminal and gui game engine
 namespace teco {
 
 // functions inits
-void init(void (*) (), int, int, int);
+void init(void (*) (), int, int, int, int);
 void exit();
 void tick();
 
@@ -35,7 +37,7 @@ void draw_gui();
 
 bool is_key_pressed(int);
 
-void playsound(char[]);
+void playsound(char[64]);
 
 // enums
 enum {
@@ -60,8 +62,6 @@ int tps;
 auto tick_slice = unfduration::zero();
 auto draw_slice = unfduration::zero();
 
-std::vector<std::vector<std::vector<int>>> layers;
-
 long tick_counter = 0;
 
 auto last_update_time = unftime();
@@ -75,28 +75,30 @@ std::vector<int> pressed_keys;
 
 bool run = true;
 
+int layer_count;
+
 // classes
 class Source {
 public:
-    std::vector<char*> symbols;
-    std::vector<char*> colors;
+    std::vector<std::string> symbols;
+    std::vector<std::string> colors;
 
-    Source(char symbols_path[], char colors_path[]) {
+    Source(const char symbols_path[64], const char colors_path[64]) {
         symbols = read_file(symbols_path);
         colors = read_file(colors_path);
     }
 
-    std::vector<char*> read_file(char file_name[]) {
-        std::vector<char*> result;
-        int line_counter = 0;
-
-        FILE *file_stram = fopen(file_name, "r");
-        if (file_stram) {
-            while(fgets(result[line_counter], 256, file_stram) != NULL) {
-                line_counter++;
+    std::vector<std::string> read_file(const char file_name[64]) {
+        std::vector<std::string> result;
+        std::string line;
+     
+        std::ifstream in (file_name);
+        if (in.is_open()) {
+            while (std::getline(in, line)) {
+                result.push_back(line);
             }
-            fclose(file_stram);
         }
+        in.close();
 
         return result;
     }
@@ -139,7 +141,7 @@ public:
 
     void update_animations() {
         if (is_playing_animations && current_tick++ == 0) {
-            if (++current_frame > animations[current_animation_index].sources.size() - 1) {
+            if (++current_frame >= animations[current_animation_index].sources.size()) {
                 switch (animations[current_animation_index].loop_mode) {
                     case LOOPING:
                         current_frame = 0;
@@ -161,27 +163,37 @@ public:
     }
 };
 
-std::vector<std::vector<Sprite*>> sprites;
+std::vector<std::vector<std::vector<Sprite>>> sprites;
 
 Sprite::Sprite(int _x, int _y, std::vector<Animation> _animations, int _default_animation_index = 0, int _layer = 8) {
-    sprites[PROCEDURAL_SPRITES].push_back(this);
-
     x = _x;
     y = _y;
     animations = _animations;
     default_animation_index = _default_animation_index;
     layer = _layer;
     current_animation_index = default_animation_index;
+    
+    sprites[layer - 1][SPRITES].push_back(*this);
 }
 
 // functions
-void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, int _tps = 20) {
+void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, int _tps = 20, int _layer_count = 8) {
     graphics_type = _graphics_type;
     fps = _fps;
     tps = _tps;
     tick_slice = unfduration(second_ratio / tps);
     draw_slice = unfduration(second_ratio / fps);
     tick_function = _tick_function;
+    layer_count = _layer_count;
+
+    for (int layer_index = 0; layer_index < layer_count; layer_index++) {
+        std::vector<std::vector<Sprite>> layer {};
+        for (int sprite_type_index = 0; sprite_type_index < 3; sprite_type_index++) {
+            std::vector<Sprite> sprite_type {};
+            layer.push_back(sprite_type);
+        }
+        sprites.push_back(layer);
+    }
 
     if (graphics_type == TUI) {
         initscr();
@@ -206,9 +218,11 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
 void tick() {
     tick_function();
     tick_counter++;
-    for (int sprite_type = 0; sprite_type < sprites.size(); sprite_type++) {
-        for (Sprite *sprite : sprites[sprite_type]) {
-            sprite->update_animations();
+    for (auto layer : sprites) {
+        for (int sprite_type_index = 0; sprite_type_index < layer.size(); sprite_type_index++) {
+            for (auto sprite : layer[sprite_type_index]) {
+                sprite.update_animations();
+            }
         }
     }
 }
@@ -245,11 +259,16 @@ void draw_tui() {
     flushinp();
     
     // draw sprites
-    for (std::vector<std::vector<int>> layer : layers) {
-        for (int sprite_type = 0; sprite_type < layer.size(); sprite_type++) {
-            for (int sprite_index : layer[sprite_type]) {
-                Sprite *sprite = sprites[sprite_type][sprite_index];
-                // Source *source = sprite->animations[sprite->current_animation_index].sources[sprite->current_frame];
+    for (auto layer : sprites) {
+        for (int sprite_type_index = 0; sprite_type_index < layer.size(); sprite_type_index++) {
+            for (auto sprite : layer[sprite_type_index]) {
+                auto source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame];
+                int x = COLS / 2 + sprite.x - (source.symbols[0].size() / 2);
+                int y = LINES / 2 + sprite.y - (source.symbols.size() / 2);
+
+                for (int symbols_line_index = 0; symbols_line_index < source.symbols.size(); symbols_line_index++) {
+                    mvprintw(y + symbols_line_index, x, source.symbols[symbols_line_index].c_str());
+                }
             }
         }
     }
@@ -262,7 +281,7 @@ void draw_gui() {
 
 }
 
-void playsound(char path_to_sound[]) {
+void playsound(char path_to_sound[64]) {
     if (graphics_type == GUI) {}
 }
 
