@@ -1,7 +1,7 @@
 #include "teco.hpp"
 
 void tick_tock() {
-    if (teco::is_key_pressed(KEY_BACKSPACE))
+    if (teco::is_key_pressed(SDLK_BACKSPACE))
         teco::exit();
 }
 

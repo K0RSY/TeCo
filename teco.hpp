@@ -33,12 +33,9 @@ void tick();
 
 void mainloop();
 
-void process_io_tui();
-void process_io_gui();
-void handle_events_tui();
-void draw_tui();
-void handle_events_gui();
-void draw_gui();
+void process_io();
+void handle_events();
+void draw();
 void playsounds(const char[64]);
 
 bool is_key_pressed(int);
@@ -281,8 +278,8 @@ void mainloop() {
 }
 
 void process_io() {
-	handle_events_gui();
-	draw_gui();
+	handle_events();
+	draw();
     const char *path = "path";
 	playsounds(path);
 }
