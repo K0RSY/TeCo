@@ -56,6 +56,13 @@ enum {
     SPRITES = 1
 };
 
+// consts
+const int STANDARD_BACKGROUND_RED = 0x12; 
+const int STANDARD_BACKGROUND_GREEN = 0x12;
+const int STANDARD_BACKGROUND_BLUE = 0x12;			
+const int STANDARD_WINDOW_WIDTH = 640;
+const int STANDARD_WINDOW_HEIGHT = 480;
+
 // variables
 int fps;
 int tps;
@@ -76,6 +83,15 @@ int graphics_type;
 std::vector<int> pressed_keys;
 
 bool run = true;
+
+int window_width = STANDARD_WINDOW_WIDTH;
+int window_height = STANDARD_WINDOW_HEIGHT;
+		
+SDL_DisplayMode display_mode;
+SDL_Event event;
+SDL_Renderer *renderer = NULL;
+SDL_Window *window = NULL;
+SDL_Surface *window_surface = NULL;
 
 // classes
 class Source {
@@ -193,26 +209,10 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
         keypad(stdscr, TRUE);
         nodelay(stdscr, TRUE);
 
-        #ifndef draw
+        #undef draw
         #define draw() draw_tui()
-        #endif
+
     } else {
-		// consts
-		const int STANDARD_BACKGROUND_RED = 0x12; 
-		const int STANDARD_BACKGROUND_GREEN = 0x12;
- 		const int STANDARD_BACKGROUND_BLUE = 0x12;			
-		const int STANDARD_WINDOW_WIDTH = 640;
-		const int STANDARD_WINDOW_HEIGHT = 480;
-
-		int window_width = STANDARD_WINDOW_WIDTH;
-		int window_height = STANDARD_WINDOW_HEIGHT;
-		
-		SDL_DisplayMode display_mode;
-		SDL_Event event_handler;
-		SDL_Renderer *renderer = NULL;
-		SDL_Window *window = NULL;
-		SDL_Surface *window_surface = NULL;
-
 		if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
 			std::cout << "SDL_Init Error: " << SDL_GetError() << std::endl;
 			exit();
@@ -241,11 +241,8 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
 
 		SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
 
-        exit();
-
-        #ifndef draw
+		#undef draw
         #define draw() draw_gui()
-        #endif
     }
 }
 
@@ -268,14 +265,14 @@ bool is_key_pressed(int key) {
 void mainloop() {
     while (run) {
         auto delta_time = unftime() - last_update_time;
-        last_update_time += delta_time;
+        last_update_time = unftime();
         accumulator += delta_time;
         
         while (accumulator > tick_slice) {
             tick();
             accumulator -= tick_slice;
         }
-        
+
         draw();
         
         if (delta_time < draw_slice)
@@ -305,7 +302,27 @@ void draw_tui() {
 }
 
 void draw_gui() {
+	// check pressed keys
+	while (SDL_PollEvent(&event) != 0) {
+		if (event.type == SDL_QUIT) {
+			exit();
+		}
 
+		else if (event.type == SDL_WINDOWEVENT) {
+			if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+				window_width = event.window.data1;
+				window_height = event.window.data2;
+			}
+		}
+		
+		else if (event.type == SDL_KEYDOWN) {
+			pressed_keys.push_back(event.key.keysym.sym);
+		}
+	}
+
+	// draw
+	SDL_RenderClear(renderer);
+	SDL_RenderPresent(renderer);	
 }
 
 void playsound(char path_to_sound[]) {
@@ -314,6 +331,9 @@ void playsound(char path_to_sound[]) {
 
 void exit() {
     run = false;
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
 }
 
 }
