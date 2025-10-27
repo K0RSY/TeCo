@@ -40,7 +40,7 @@ void handle_events_tui();
 void draw_tui();
 void handle_events_gui();
 void draw_gui();
-void playsounds(char[]);
+void playsounds(const char[64]);
 
 bool is_key_pressed(int);
 
@@ -359,7 +359,7 @@ void draw_gui() {
 	SDL_RenderPresent(renderer);	
 }
 
-void playsounds(const char path_to_sound[]) {
+void playsounds(const char path_to_sound[64]) {
 }
 
 void exit() {
