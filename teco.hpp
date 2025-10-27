@@ -3,7 +3,9 @@ TeCo - one-file-headder C++ terminal and gui game engine
 */
 
 #include <ncurses.h>
+#include <SDL2/SDL.h>
 #include <vector>
+#include <iostream>
 #include <algorithm>
 #include <chrono>
 
@@ -195,6 +197,50 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
         #define draw() draw_tui()
         #endif
     } else {
+		// consts
+		const int STANDARD_BACKGROUND_RED = 0x12; 
+		const int STANDARD_BACKGROUND_GREEN = 0x12;
+ 		const int STANDARD_BACKGROUND_BLUE = 0x12;			
+		const int STANDARD_WINDOW_WIDTH = 640;
+		const int STANDARD_WINDOW_HEIGHT = 480;
+
+		int window_width = STANDARD_WINDOW_WIDTH;
+		int window_height = STANDARD_WINDOW_HEIGHT;
+		
+		SDL_DisplayMode display_mode;
+		SDL_Event event_handler;
+		SDL_Renderer *renderer = NULL;
+		SDL_Window *window = NULL;
+		SDL_Surface *window_surface = NULL;
+
+		if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+			std::cout << "SDL_Init Error: " << SDL_GetError() << std::endl;
+			exit();
+		}
+
+		window = SDL_CreateWindow(
+			"Хранитель света и тайн Балитики",
+			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+			STANDARD_WINDOW_WIDTH, STANDARD_WINDOW_HEIGHT,
+			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+		);
+
+		if (window == NULL) {
+			std::cout << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
+		}
+
+		renderer = SDL_CreateRenderer(
+			window, -1,
+			SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+		);
+
+		if (renderer == NULL)
+		{
+			std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
+		}
+
+		SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
+
         exit();
 
         #ifndef draw
