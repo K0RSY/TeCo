@@ -5,7 +5,6 @@ TeCo - one-file-headder C++ terminal and gui game engine
 #include <ncurses.h>
 #include <vector>
 #include <algorithm>
-#include <string>
 #include <chrono>
 
 #define unfduration std::chrono::nanoseconds
@@ -31,7 +30,8 @@ void tick();
 
 void mainloop();
 
-void draw();
+void draw_tui();
+void draw_gui();
 
 bool is_key_pressed(int);
 
@@ -49,11 +49,20 @@ enum {
     STOP_ON_LAST_FRAME = 2
 };
 
+enum {
+    PROCEDURAL_SPRITES = 0,
+    SPRITES = 1
+};
+
 // variables
 int fps;
 int tps;
 auto tick_slice = unfduration::zero();
 auto draw_slice = unfduration::zero();
+
+std::vector<std::vector<std::vector<int>>> layers;
+
+long tick_counter = 0;
 
 auto last_update_time = unftime();
 auto accumulator = unfduration::zero();
@@ -62,8 +71,6 @@ void (*tick_function) ();
 
 int graphics_type;
 
-int c = 0;
-
 std::vector<int> pressed_keys;
 
 bool run = true;
@@ -71,25 +78,100 @@ bool run = true;
 // classes
 class Source {
 public:
+    std::vector<char*> symbols;
+    std::vector<char*> colors;
+
     Source(char symbols_path[], char colors_path[]) {
+        symbols = read_file(symbols_path);
+        colors = read_file(colors_path);
+    }
+
+    std::vector<char*> read_file(char file_name[]) {
+        std::vector<char*> result;
+        int line_counter = 0;
+
+        FILE *file_stram = fopen(file_name, "r");
+        if (file_stram) {
+            while(fgets(result[line_counter], 256, file_stram) != NULL) {
+                line_counter++;
+            }
+            fclose(file_stram);
+        }
+
+        return result;
     }
 };
 
 class Animation {
 public:
-    Animation(Source sources[], int loop_mode, int draws_per_frame) {
+    std::vector<Source> sources;
+    int loop_mode;
+    int ticks_per_frame;
+
+    Animation(std::vector<Source> _sources, int _loop_mode = STOP_ON_FIRST_FRAME, int _ticks_per_frame = 2) {
+        sources = _sources;
+        loop_mode = _loop_mode;
+        ticks_per_frame = _ticks_per_frame;
     }
 };
 
 class Sprite {
 public:
-    Sprite(int x, int y, Animation animations[], int default_animation);
+    int x;
+    int y;
+    std::vector<Animation> animations;
+    int default_animation_index;
+    int layer;
+    int current_animation_index;
+    int current_frame;
+    bool is_playing_animations;
+    int current_tick;
+
+    Sprite(int, int, std::vector<Animation>, int, int);
+
+    void play_animation(int animation_index) {
+        if (animation_index != current_animation_index) {
+            current_animation_index = animation_index;
+            current_frame = 0;
+            current_tick = 0;
+        }
+    }
+
+    void update_animations() {
+        if (is_playing_animations && current_tick++ == 0) {
+            if (++current_frame > animations[current_animation_index].sources.size() - 1) {
+                switch (animations[current_animation_index].loop_mode) {
+                    case LOOPING:
+                        current_frame = 0;
+                        break;
+                    case STOP_ON_LAST_FRAME:
+                        is_playing_animations = false;
+                        current_frame--;
+                        break;
+                    case STOP_ON_FIRST_FRAME:
+                        is_playing_animations = false;
+                        current_frame = 0;
+                        break;
+                }
+            }
+        }
+        if (current_tick > animations[current_animation_index].ticks_per_frame - 1) {
+            current_tick = 0;
+        }
+    }
 };
 
-std::vector<Sprite*> sprites;
+std::vector<std::vector<Sprite*>> sprites;
 
-Sprite::Sprite(int x, int y, Animation animations[], int default_animation) {
-    sprites.push_back(this);
+Sprite::Sprite(int _x, int _y, std::vector<Animation> _animations, int _default_animation_index = 0, int _layer = 8) {
+    sprites[PROCEDURAL_SPRITES].push_back(this);
+
+    x = _x;
+    y = _y;
+    animations = _animations;
+    default_animation_index = _default_animation_index;
+    layer = _layer;
+    current_animation_index = default_animation_index;
 }
 
 // functions
@@ -108,18 +190,33 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
         noecho();
         keypad(stdscr, TRUE);
         nodelay(stdscr, TRUE);
+
+        #ifndef draw
+        #define draw() draw_tui()
+        #endif
     } else {
         exit();
+
+        #ifndef draw
+        #define draw() draw_gui()
+        #endif
     }
 }
 
 void tick() {
     tick_function();
-    c++;
+    tick_counter++;
+    for (int sprite_type = 0; sprite_type < sprites.size(); sprite_type++) {
+        for (Sprite *sprite : sprites[sprite_type]) {
+            sprite->update_animations();
+        }
+    }
 }
 
 bool is_key_pressed(int key) {
-    return std::find(pressed_keys.begin(), pressed_keys.end(), key) != pressed_keys.end();
+    bool result = std::find(pressed_keys.begin(), pressed_keys.end(), key) != pressed_keys.end();
+    pressed_keys.clear();
+    return result;
 }
 
 void mainloop() {
@@ -141,19 +238,28 @@ void mainloop() {
     endwin();
 }
 
-void draw() {
-    if (graphics_type == TUI) {
-        // check pressed keys
-        int ch = getch();
-        pressed_keys.push_back(ch);
-        flushinp();
-        
-        // draw sprites
-        mvprintw(4, 2, "%d", c);
-        
-        refresh();
-        clear();
+void draw_tui() {
+    // check pressed keys
+    int ch = getch();
+    pressed_keys.push_back(ch);
+    flushinp();
+    
+    // draw sprites
+    for (std::vector<std::vector<int>> layer : layers) {
+        for (int sprite_type = 0; sprite_type < layer.size(); sprite_type++) {
+            for (int sprite_index : layer[sprite_type]) {
+                Sprite *sprite = sprites[sprite_type][sprite_index];
+                // Source *source = sprite->animations[sprite->current_animation_index].sources[sprite->current_frame];
+            }
+        }
     }
+    
+    refresh();
+    clear();
+}
+
+void draw_gui() {
+
 }
 
 void playsound(char path_to_sound[]) {
