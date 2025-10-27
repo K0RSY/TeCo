@@ -2,6 +2,7 @@
 TeCo - one-file-headder C++ terminal and gui game engine
 */
 
+#include <ncurses.h>
 #include <SDL2/SDL.h>
 #include <vector>
 #include <iostream>
@@ -215,33 +216,49 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
         sprites.push_back(layer);
     }
 
-    if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
-        std::cout << "SDL_Init Error: " << SDL_GetError() << std::endl;
-        exit();
+    if (graphics_type == TUI) {
+        initscr();
+        curs_set(0);
+        
+        noecho();
+        keypad(stdscr, TRUE);
+        nodelay(stdscr, TRUE);
+
+        #undef process_io
+        #define process_io() process_io_tui()
+
+    } else {
+		if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+			std::cout << "SDL_Init Error: " << SDL_GetError() << std::endl;
+			exit();
+		}
+
+		window = SDL_CreateWindow(
+			"Хранитель света и тайн Балитики",
+			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+			STANDARD_WINDOW_WIDTH, STANDARD_WINDOW_HEIGHT,
+			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+		);
+
+		if (window == NULL) {
+			std::cout << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
+		}
+
+		renderer = SDL_CreateRenderer(
+			window, -1,
+			SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+		);
+
+		if (renderer == NULL)
+		{
+			std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
+		}
+
+		SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
+
+		#undef process_io
+        #define process_io() process_io_gui()
     }
-
-    window = SDL_CreateWindow(
-        "Хранитель света и тайн Балитики",
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        STANDARD_WINDOW_WIDTH, STANDARD_WINDOW_HEIGHT,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
-    );
-
-    if (window == NULL) {
-        std::cout << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
-    }
-
-    renderer = SDL_CreateRenderer(
-        window, -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
-    );
-
-    if (renderer == NULL)
-    {
-        std::cout << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
-    }
-
-    SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
 }
 
 void tick() {
@@ -278,16 +295,28 @@ void mainloop() {
         if (delta_time < draw_slice)
             unfsleep((draw_slice - delta_time).count());
     }
+    endwin();
 }
 
-void process_io() {
+void process_io_tui() {
+	handle_events_tui();
+	draw_tui();
+}
+
+void process_io_gui() {
 	handle_events_gui();
 	draw_gui();
     const char *path = "path";
 	playsounds(path);
 }
 
-void handle_events() {
+void handle_events_tui() {
+    int ch = getch();
+    pressed_keys.push_back(ch);
+    flushinp();
+}
+
+void handle_events_gui() {
 	while (SDL_PollEvent(&event) != 0) {
 		if (event.type == SDL_QUIT) {
 			exit();
@@ -306,7 +335,26 @@ void handle_events() {
 	}
 }
 
-void draw() {
+void draw_tui() {
+    for (auto layer : sprites) {
+        for (int sprite_type_index = 0; sprite_type_index < layer.size(); sprite_type_index++) {
+            for (auto sprite : layer[sprite_type_index]) {
+                auto source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame];
+                int x = COLS / 2 + sprite.x - (source.symbols[0].size() / 2);
+                int y = LINES / 2 + sprite.y - (source.symbols.size() / 2);
+
+                for (int symbols_line_index = 0; symbols_line_index < source.symbols.size(); symbols_line_index++) {
+                    mvprintw(y + symbols_line_index, x, source.symbols[symbols_line_index].c_str());
+                }
+            }
+        }
+    }
+    
+    refresh();
+    clear();
+}
+
+void draw_gui() {
 	SDL_RenderClear(renderer);
 	SDL_RenderPresent(renderer);	
 }
