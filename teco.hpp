@@ -3,6 +3,7 @@ TeCo - one-file-headder C++ terminal and gui game engine
 */
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>  
 #include <vector>
 #include <iostream>
 #include <algorithm>
@@ -63,6 +64,12 @@ const int STANDARD_BACKGROUND_GREEN = 0x12;
 const int STANDARD_BACKGROUND_BLUE = 0x12;			
 const int STANDARD_WINDOW_WIDTH = 640;
 const int STANDARD_WINDOW_HEIGHT = 480;
+const int WIDTH_IN_SYMBOLS = 128;
+const int HEIGHT_IN_SYMBOLS = 36;
+const int WIDTH_PER_SYMBOL = 8;
+const int HEIGHT_PER_SYMBOL = 16;
+
+const char TITLE[] = "Wrangler";
 
 // variables
 int fps;
@@ -87,7 +94,7 @@ int layer_count;
   
 int window_width = STANDARD_WINDOW_WIDTH;
 int window_height = STANDARD_WINDOW_HEIGHT;
-		
+
 SDL_DisplayMode display_mode;
 SDL_Event event;
 SDL_Renderer *renderer = NULL;
@@ -136,40 +143,39 @@ public:
 
 class Sprite {
 public:
-    int x;
-    int y;
+    int x = 0;
+    int y = 0;
     std::vector<Animation> animations;
-    int default_animation_index;
     int layer;
-    int current_animation_index;
-    int current_frame;
+    int current_animation_index = 0;
+    int current_frame_index = 0;
     bool is_playing_animations;
-    int current_tick;
+    int current_tick = 0;
 
     Sprite(int, int, std::vector<Animation>, int, int);
 
     void play_animation(int animation_index) {
         if (animation_index != current_animation_index) {
             current_animation_index = animation_index;
-            current_frame = 0;
+            current_frame_index = 0;
             current_tick = 0;
         }
     }
 
     void update_animations() {
         if (is_playing_animations && current_tick++ == 0) {
-            if (++current_frame >= animations[current_animation_index].sources.size()) {
+            if (++current_frame_index >= animations[current_animation_index].sources.size()) {
                 switch (animations[current_animation_index].loop_mode) {
                     case LOOPING:
-                        current_frame = 0;
+                        current_frame_index = 0;
                         break;
                     case STOP_ON_LAST_FRAME:
                         is_playing_animations = false;
-                        current_frame--;
+                        current_frame_index--;
                         break;
                     case STOP_ON_FIRST_FRAME:
                         is_playing_animations = false;
-                        current_frame = 0;
+                        current_frame_index = 0;
                         break;
                 }
             }
@@ -186,12 +192,27 @@ Sprite::Sprite(int _x, int _y, std::vector<Animation> _animations, int _default_
     x = _x;
     y = _y;
     animations = _animations;
-    default_animation_index = _default_animation_index;
     layer = _layer;
-    current_animation_index = default_animation_index;
     
     sprites[layer - 1][SPRITES].push_back(*this);
 }
+
+class Screen {
+public:
+	char symbols[HEIGHT_IN_SYMBOLS*4][WIDTH_IN_SYMBOLS*4];
+	char colors[HEIGHT_IN_SYMBOLS*4][WIDTH_IN_SYMBOLS*4];
+	
+	void add_sprite(Sprite sprite){
+		Source source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame_index];
+
+		for (int line_number = sprite.y; line_number - sprite.y < source.symbols.size(); line_number+=4) {
+			for (int column_number = sprite.x; column_number - sprite.x < source.symbols[line_number-sprite.y].size(); column_number+=4) {
+				symbols[line_number][column_number] = source.symbols[line_number-sprite.y][column_number-sprite.x];
+			}
+			std::cout << source.symbols[line_number-sprite.y] << std::endl;
+		}
+	}
+};
 
 // functions
 void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, int _tps = 20, int _layer_count = 8) {
@@ -218,7 +239,7 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
     }
 
     window = SDL_CreateWindow(
-        "Хранитель света и тайн Балитики",
+        TITLE,
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         STANDARD_WINDOW_WIDTH, STANDARD_WINDOW_HEIGHT,
         SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
@@ -305,7 +326,26 @@ void handle_events() {
 
 void draw() {
 	SDL_RenderClear(renderer);
-	SDL_RenderPresent(renderer);	
+	SDL_RenderPresent(renderer);
+
+	Screen screen;
+	
+/*
+	for (auto layer : sprites) {
+        for (int sprite_type_index = 0; sprite_type_index < layer.size(); sprite_type_index++) {
+            for (auto sprite : layer[sprite_type_index]) {
+                auto source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame];
+                int x = window_width / WIDTH_PER_SYMBOL / 2 + sprite.x - (source.symbols[0].size() / 2);
+                int y = window_height / HEIGHT_PER_SYMBOL / 2 + sprite.y - (source.symbols.size() / 2);
+
+                for (int symbols_line_index = 0; symbols_line_index < source.symbols.size(); symbols_line_index++) {
+                    // mvprintw(y + symbols_line_index, x, source.symbols[symbols_line_index].c_str());
+                	
+				}
+            }
+        }
+    }
+*/	
 }
 
 void playsounds(const char path_to_sound[64]) {

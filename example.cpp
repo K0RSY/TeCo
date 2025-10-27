@@ -6,7 +6,7 @@ void tick_tock() {
 }
 
 int main() {
-    teco::init(tick_tock, teco::TUI, 60, 20, 8);
+    teco::init(tick_tock, teco::GUI, 60, 20, 8);
 
     const char *symbols = "./test.tcsb"; 
     const char *colors = "./test.tccl";
