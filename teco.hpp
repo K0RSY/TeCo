@@ -32,12 +32,15 @@ void tick();
 
 void mainloop();
 
+void process_io_tui();
+void process_io_gui();
+void handle_events_tui();
 void draw_tui();
+void handle_events_gui();
 void draw_gui();
+void playsounds(char[]);
 
 bool is_key_pressed(int);
-
-void playsound(char[]);
 
 // enums
 enum {
@@ -209,8 +212,8 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
         keypad(stdscr, TRUE);
         nodelay(stdscr, TRUE);
 
-        #undef draw
-        #define draw() draw_tui()
+        #undef process_io
+        #define process_io() process_io_tui()
 
     } else {
 		if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -241,8 +244,8 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
 
 		SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
 
-		#undef draw
-        #define draw() draw_gui()
+		#undef process_io
+        #define process_io() process_io_gui()
     }
 }
 
@@ -273,7 +276,7 @@ void mainloop() {
             accumulator -= tick_slice;
         }
 
-        draw();
+        process_io();
         
         if (delta_time < draw_slice)
             unfsleep((draw_slice - delta_time).count());
@@ -281,13 +284,24 @@ void mainloop() {
     endwin();
 }
 
-void draw_tui() {
-    // check pressed keys
+void process_io_tui() {
+	handle_events_tui();
+	draw_tui();
+}
+
+void process_io_gui() {
+	handle_events_gui();
+	draw_gui();
+	playsounds("path");
+}
+
+void handle_events_tui() {
     int ch = getch();
     pressed_keys.push_back(ch);
-    flushinp();
-    
-    // draw sprites
+    flushinp(); 
+}
+
+void draw_tui() {
     for (std::vector<std::vector<int>> layer : layers) {
         for (int sprite_type = 0; sprite_type < layer.size(); sprite_type++) {
             for (int sprite_index : layer[sprite_type]) {
@@ -301,8 +315,7 @@ void draw_tui() {
     clear();
 }
 
-void draw_gui() {
-	// check pressed keys
+void handle_events_gui() {
 	while (SDL_PollEvent(&event) != 0) {
 		if (event.type == SDL_QUIT) {
 			exit();
@@ -314,19 +327,20 @@ void draw_gui() {
 				window_height = event.window.data2;
 			}
 		}
-		
+
 		else if (event.type == SDL_KEYDOWN) {
 			pressed_keys.push_back(event.key.keysym.sym);
 		}
 	}
+}
 
-	// draw
+void draw_gui() {
 	SDL_RenderClear(renderer);
 	SDL_RenderPresent(renderer);	
 }
 
-void playsound(char path_to_sound[]) {
-    if (graphics_type == GUI) {}
+void playsounds(char path_to_sound[]) {
+
 }
 
 void exit() {
