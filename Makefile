@@ -1,5 +1,5 @@
 CC=g++
-FLAGS=-lncurses -lSDL2
+FLAGS=-lSDL2 -lSDL2_ttf
 INPUT=./example.cpp
 OUTPUT=./exc
 
