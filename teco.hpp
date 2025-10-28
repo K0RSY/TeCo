@@ -57,13 +57,13 @@ enum {
 // consts
 const int STANDARD_BACKGROUND_RED = 0x12; 
 const int STANDARD_BACKGROUND_GREEN = 0x12;
-const int STANDARD_BACKGROUND_BLUE = 0x12;			
-const int STANDARD_WINDOW_WIDTH = 640;
-const int STANDARD_WINDOW_HEIGHT = 480;
-const int WIDTH_IN_SYMBOLS = 128;
-const int HEIGHT_IN_SYMBOLS = 36;
-const int WIDTH_PER_SYMBOL = 8;
-const int HEIGHT_PER_SYMBOL = 16;
+const int STANDARD_BACKGROUND_BLUE = 0x12;	
+const int STANDARD_WINDOW_WIDTH = 1152;
+const int STANDARD_WINDOW_HEIGHT = 672;
+const int WIDTH_IN_SYMBOLS = 192;
+const int HEIGHT_IN_SYMBOLS = 56;
+const int WIDTH_PER_SYMBOL = 6;
+const int HEIGHT_PER_SYMBOL = 12;
 
 const char TITLE[] = "Wrangler";
 
@@ -152,7 +152,7 @@ public:
     bool is_playing_animations;
     int current_tick = 0;
 
-    Sprite(int, int, std::vector<Animation>, int, int);
+    Sprite(int, int, std::vector<Animation>, int);
 
     void play_animation(int animation_index) {
         if (animation_index != current_animation_index) {
@@ -186,33 +186,21 @@ public:
     }
 };
 
-std::vector<std::vector<Sprite>> sprites;
+std::vector<Sprite> sprites;
 
-Sprite::Sprite(int _x, int _y, std::vector<Animation> _animations, int _default_animation_index = 0, int _layer = 8) {
+Sprite::Sprite(int _x, int _y, std::vector<Animation> _animations, int _default_animation_index = 0) {
     x = _x;
     y = _y;
     animations = _animations;
-    layer = _layer;
     
-    sprites[layer - 1].push_back(*this);
+    sprites.push_back(*this);
 }
 
 class Screen {
 public:
-	char symbols[HEIGHT_IN_SYMBOLS*4][WIDTH_IN_SYMBOLS*4];
-	char colors[HEIGHT_IN_SYMBOLS*4][WIDTH_IN_SYMBOLS*4];
+	char symbols[HEIGHT_IN_SYMBOLS][WIDTH_IN_SYMBOLS];
 	
 	void add_sprite_sp(Sprite sprite) {
-		Source source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame_index];
-
-		for (int line = 0; line < source.symbols.size(); line++) {
-			for (int column = 0; column < source.symbols[line].size(); column++) {
-				symbols[line*4+sprite.y][column*4+sprite.x] = source.symbols[line][column];
-			}
-		}
-    }
-
-	void add_sprite_qsp(Sprite sprite) {
 		Source source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame_index];
 
 		for (int line = 0; line < source.symbols.size(); line++) {
@@ -225,7 +213,7 @@ public:
     void clear() {
         for (int line = 0; line < HEIGHT_IN_SYMBOLS; line++) {
 			for (int column = 0; column < WIDTH_IN_SYMBOLS; column++) {
-				symbols[line*4][column*4] = ' ';
+				symbols[line][column] = ' ';
 			}
 		}
     }
@@ -241,12 +229,6 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
     tick_slice = unfduration(second_ratio / tps);
     draw_slice = unfduration(second_ratio / fps);
     tick_function = _tick_function;
-    layer_count = _layer_count;
-
-    for (int layer_index = 0; layer_index < layer_count; layer_index++) {
-        std::vector<Sprite> layer {};
-        sprites.push_back(layer);
-    }
 
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
         std::cout << "SDL_Init Error: " << SDL_GetError() << std::endl;
@@ -257,7 +239,7 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
         TITLE,
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         STANDARD_WINDOW_WIDTH, STANDARD_WINDOW_HEIGHT,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+        SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE
     );
 
     if (window == NULL) {
@@ -278,7 +260,7 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
 		std::cout << "TTF_Init ne initializirovalsa" << std::endl;
 	}
 
-	font = TTF_OpenFont("./JetBrainsMono-Regular.ttf", 90);
+	font = TTF_OpenFont("./JetBrainsMono-Regular.ttf", 20);
 
     SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
 
@@ -288,10 +270,8 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
 void tick() {
     tick_function();
     tick_counter++;
-    for (auto layer : sprites) {
-        for (auto sprite : layer) {
-            sprite.update_animations();
-        }
+    for (auto sprite : sprites) {
+		sprite.update_animations();
     }
 }
 
@@ -351,28 +331,48 @@ void draw() {
 
     screen.clear();
 
-	for (auto layer : sprites) {
-        for (auto sprite : layer) {
-            screen.add_sprite_sp(sprite);
-        }
+	for (auto sprite : sprites) {
+        screen.add_sprite_sp(sprite);
     }
 
-	for (int line = 0; line <= teco::HEIGHT_IN_SYMBOLS; line++) {
-		for (int column = 0; column <= teco::WIDTH_IN_SYMBOLS; column++) {
-			text_surface = TTF_RenderText_Solid(font, &screen.symbols[line][column], text_color);
-			text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-			SDL_FreeSurface(text_surface);
-			SDL_Rect text_rectangle = {
-				column*window_width/4/WIDTH_IN_SYMBOLS,
-				line*window_height/4/HEIGHT_IN_SYMBOLS,
-				window_width/WIDTH_IN_SYMBOLS, 
-				window_height/HEIGHT_IN_SYMBOLS
-			};
-			SDL_RenderCopy(renderer, text_texture, NULL, &text_rectangle);
+	char current_symbol[2];
+	current_symbol[1] = '\0';
+
+	for (int line = 0; line < teco::HEIGHT_IN_SYMBOLS; line++) {
+		for (int column = 0; column < teco::WIDTH_IN_SYMBOLS; column++) {
+			if (screen.symbols[line][column] != ' ') {
+				current_symbol[0] = screen.symbols[line][column];
+				text_surface = TTF_RenderText_Solid(font, current_symbol, text_color);
+				text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+				SDL_FreeSurface(text_surface);
+				SDL_Rect text_rectangle = {
+					column*window_width/WIDTH_IN_SYMBOLS,
+					line*window_height/HEIGHT_IN_SYMBOLS,
+					window_width/WIDTH_IN_SYMBOLS, 
+					window_height/HEIGHT_IN_SYMBOLS
+				};
+				SDL_RenderCopy(renderer, text_texture, NULL, &text_rectangle);
+				SDL_DestroyTexture(text_texture);
+			}
 		}
 	}
+	
+	SDL_RenderPresent(renderer);
+/*
+	text_surface = TTF_RenderText_Solid(font, "\"\" \"  \"", text_color);
+	text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+	SDL_FreeSurface(text_surface);
+	SDL_Rect text_rectangle = {
+		5*WIDTH_PER_SYMBOL,
+		6*HEIGHT_PER_SYMBOL,
+		7*WIDTH_PER_SYMBOL, 
+		HEIGHT_PER_SYMBOL
+	};
+	SDL_RenderCopy(renderer, text_texture, NULL, &text_rectangle);
+	SDL_DestroyTexture(text_texture);
 
 	SDL_RenderPresent(renderer);
+*/
 }
 
 void playsounds(const char path_to_sound[64]) {

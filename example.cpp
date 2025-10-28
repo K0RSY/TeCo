@@ -22,8 +22,7 @@ int main() {
     teco::Sprite test_sprite = teco::Sprite(
         0, 0,
         test_animations,
-        0,
-        8
+        0
     );
 
     teco::mainloop();
