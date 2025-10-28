@@ -371,7 +371,6 @@ void draw() {
 		}
 	}
 
-
 	SDL_RenderPresent(renderer);
 }
 

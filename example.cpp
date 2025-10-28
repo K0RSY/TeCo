@@ -23,7 +23,7 @@ int main() {
         0, 0,
         test_animations,
         0,
-        8
+        7
     );
 
     teco::mainloop();
