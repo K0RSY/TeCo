@@ -53,11 +53,6 @@ enum {
     STOP_ON_LAST_FRAME = 2
 };
 
-enum {
-    PROCEDURAL_SPRITES = 0,
-    SPRITES = 1
-};
-
 // consts
 const int STANDARD_BACKGROUND_RED = 0x12; 
 const int STANDARD_BACKGROUND_GREEN = 0x12;
@@ -186,7 +181,7 @@ public:
     }
 };
 
-std::vector<std::vector<std::vector<Sprite>>> sprites;
+std::vector<std::vector<Sprite>> sprites;
 
 Sprite::Sprite(int _x, int _y, std::vector<Animation> _animations, int _default_animation_index = 0, int _layer = 8) {
     x = _x;
@@ -194,7 +189,7 @@ Sprite::Sprite(int _x, int _y, std::vector<Animation> _animations, int _default_
     animations = _animations;
     layer = _layer;
     
-    sprites[layer - 1][SPRITES].push_back(*this);
+    sprites[layer - 1].push_back(*this);
 }
 
 class Screen {
@@ -202,7 +197,7 @@ public:
 	char symbols[HEIGHT_IN_SYMBOLS*4][WIDTH_IN_SYMBOLS*4];
 	char colors[HEIGHT_IN_SYMBOLS*4][WIDTH_IN_SYMBOLS*4];
 	
-	void add_sprite(Sprite sprite){
+	void add_sprite(Sprite sprite) {
 		Source source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame_index];
 
 		for (int line = 0; line < source.symbols.size(); line++) {
@@ -210,8 +205,18 @@ public:
 				symbols[line*4+sprite.y][column*4+sprite.x] = source.symbols[line][column];
 			}
 		}
-	}
+    }
+
+    void clear() {
+        for (int line = 0; line < HEIGHT_IN_SYMBOLS; line++) {
+			for (int column = 0; column < WIDTH_IN_SYMBOLS; column++) {
+				symbols[line*4][column*4] = ' ';
+			}
+		}
+    }
 };
+
+Screen screen;
 
 // functions
 void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, int _tps = 20, int _layer_count = 8) {
@@ -224,11 +229,7 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
     layer_count = _layer_count;
 
     for (int layer_index = 0; layer_index < layer_count; layer_index++) {
-        std::vector<std::vector<Sprite>> layer {};
-        for (int sprite_type_index = 0; sprite_type_index < 3; sprite_type_index++) {
-            std::vector<Sprite> sprite_type {};
-            layer.push_back(sprite_type);
-        }
+        std::vector<Sprite> layer {};
         sprites.push_back(layer);
     }
 
@@ -259,16 +260,16 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
     }
 
     SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
+
+	Screen screen;
 }
 
 void tick() {
     tick_function();
     tick_counter++;
     for (auto layer : sprites) {
-        for (int sprite_type_index = 0; sprite_type_index < layer.size(); sprite_type_index++) {
-            for (auto sprite : layer[sprite_type_index]) {
-                sprite.update_animations();
-            }
+        for (auto sprite : layer) {
+            sprite.update_animations();
         }
     }
 }
@@ -325,31 +326,21 @@ void handle_events() {
 
 void draw() {
 	SDL_RenderClear(renderer);
+    screen.clear();
 	
-/*
 	for (auto layer : sprites) {
-        for (int sprite_type_index = 0; sprite_type_index < layer.size(); sprite_type_index++) {
-            for (auto sprite : layer[sprite_type_index]) {
-                auto source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame];
-                int x = window_width / WIDTH_PER_SYMBOL / 2 + sprite.x - (source.symbols[0].size() / 2);
-                int y = window_height / HEIGHT_PER_SYMBOL / 2 + sprite.y - (source.symbols.size() / 2);
-
-                for (int symbols_line_index = 0; symbols_line_index < source.symbols.size(); symbols_line_index++) {
-                    // mvprintw(y + symbols_line_index, x, source.symbols[symbols_line_index].c_str());
-                	
-				}
-            }
+        for (auto sprite : layer) {
+            screen.add_sprite(sprite);
         }
     }
-*/
 
 	for (int line = 0; line <= teco::HEIGHT_IN_SYMBOLS; line++) {
 		for (int column = 0; column <= teco::WIDTH_IN_SYMBOLS; column++) {
-			if (test_screen.symbols[line][column] != '#') {
+			if (screen.symbols[line][column] != '#') {
 				std::cout << " ";
 			}
 			else {
-				std::cout << test_screen.symbols[line][column];
+				std::cout << screen.symbols[line][column];
 			}
 		}
 		std::cout << std::endl;
