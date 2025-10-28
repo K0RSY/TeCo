@@ -201,20 +201,20 @@ Sprite::Sprite(int _x, int _y, std::vector<Animation> _animations, int _default_
     animations = _animations;
     layer = _layer;
     
-    sprites[layer - 1].push_back(*this);
+    sprites[layer].push_back(*this);
 }
 
 class Screen {
 public:
-	char symbols[HEIGHT_IN_SYMBOLS*4][WIDTH_IN_SYMBOLS*4];
-	char colors[HEIGHT_IN_SYMBOLS*4][WIDTH_IN_SYMBOLS*4];
+	char symbols[HEIGHT_IN_SYMBOLS][WIDTH_IN_SYMBOLS];
+	char colors[HEIGHT_IN_SYMBOLS][WIDTH_IN_SYMBOLS];
 	
 	void add_sprite(Sprite sprite) {
 		Source source = sprite.animations[sprite.current_animation_index].sources[sprite.current_frame_index];
 
 		for (int line = 0; line < source.symbols.size(); line++) {
 			for (int column = 0; column < source.symbols[line].size(); column++) {
-				symbols[line*4+sprite.y][column*4+sprite.x] = source.symbols[line][column];
+				symbols[line+sprite.y][column+sprite.x] = source.symbols[line][column];
 			}
 		}
     }
@@ -222,7 +222,7 @@ public:
     void clear() {
         for (int line = 0; line < HEIGHT_IN_SYMBOLS; line++) {
 			for (int column = 0; column < WIDTH_IN_SYMBOLS; column++) {
-				symbols[line*4][column*4] = ' ';
+				symbols[line][column] = ' ';
 			}
 		}
     }
@@ -275,7 +275,7 @@ void init(void (*_tick_function) (), int _graphics_type = TUI, int _fps = 60, in
 		std::cout << "TTF_Init ne initializirovalsa" << std::endl;
 	}
 
-	font = TTF_OpenFont("./JetBrainsMono-Regular.ttf", 20);
+	font = TTF_OpenFont("./JetBrainsMono-Regular.ttf", 12);
 
     SDL_SetRenderDrawColor(renderer, STANDARD_BACKGROUND_RED, STANDARD_BACKGROUND_GREEN, STANDARD_BACKGROUND_BLUE, 0x00);
 
@@ -344,28 +344,30 @@ void handle_events() {
 
 void draw() {
 	SDL_RenderClear(renderer);
-
+    
     screen.clear();
-
+    
 	for (auto layer : sprites) {
         for (auto sprite : layer) {
             screen.add_sprite(sprite);
         }
     }
+    std::cout << screen.symbols[0] << std::endl;
 
-	for (int line = 0; line <= teco::HEIGHT_IN_SYMBOLS * 4; line++) {
-		for (int column = 0; column <= teco::WIDTH_IN_SYMBOLS * 4; column++) {
+	for (int line = 0; line <= teco::HEIGHT_IN_SYMBOLS; line++) {
+		for (int column = 0; column <= teco::WIDTH_IN_SYMBOLS; column++) {
 			text_surface = TTF_RenderText_Solid(font, &screen.symbols[line][column], text_color);
 			text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
 			SDL_FreeSurface(text_surface);
             text_surface = NULL;
 			SDL_Rect text_rectangle = {
-				column*window_width/4/WIDTH_IN_SYMBOLS,
-				line*window_height/4/HEIGHT_IN_SYMBOLS,
+				column*window_width/WIDTH_IN_SYMBOLS,
+				line*window_height/HEIGHT_IN_SYMBOLS,
 				window_width/WIDTH_IN_SYMBOLS, 
 				window_height/HEIGHT_IN_SYMBOLS
 			};
 			SDL_RenderCopy(renderer, text_texture, NULL, &text_rectangle);
+            SDL_DestroyTexture(text_texture);
 		}
 	}
 
